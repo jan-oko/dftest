@@ -38,7 +38,7 @@ import dftest.utils as utils
 from dftest.Test import TestResult, Test, IndexTestResult, BooleanTestResult
 from dftest.style import StyleFile, Style
 
-# Certain GUIs throw an exception when imported or used in colab.
+# Interactive matplotlib backends throw an exception when used in colab or notebooks.
 if not (utils.in_colab() or utils.in_notebook()):
     # For graph graphics
     import matplotlib
@@ -66,8 +66,8 @@ class DFTests:
 
     def load_files(self, *files):
         """
-        Loads test functions from a given module by path. Functions are detected as any callables with a "test_"
-        prefix.
+        Loads test functions from a given module by path. Functions are detected as any callables whose name matches
+        ``^[Dd][Ff][_]?[Tt]est[A-Z_]``, e.g. ``dfTestFoo``, ``DFTest_bar`` or ``df_TestBaz``.
 
         :param files: a list of paths to .py files containing test functions. Directories will be searched
         for any .py file in the directory tree.
@@ -76,9 +76,8 @@ class DFTests:
         file_list: List[str] = []
         for filename in files:
             if os.path.isdir(filename):
-                for dirpaths, dirs, file_list in os.walk('', topdown=True):
-                    file_list += [os.path.join(dirpath, file) for dirpath, file in zip(dirpaths, file_list) if
-                                  file.endswith('.py')]
+                for dirpath, _, filenames in os.walk(filename, topdown=True):
+                    file_list += [os.path.join(dirpath, file) for file in sorted(filenames) if file.endswith('.py')]
             elif os.path.isfile(filename) or os.path.islink(filename):
                 file_list.append(filename)
 
@@ -110,15 +109,17 @@ class DFTests:
 
                 if func.__code__.co_argcount == 1:  # Concrete tests
                     tested_columns = args.pop('tested_columns', None)
-                    self.add_concrete_test(func, name, tested_columns, ignore_columns, success_threshold, **args)
+                    self.add_concrete_test(func, name=name, tested_columns=tested_columns,
+                                           ignore_columns=ignore_columns, success_threshold=success_threshold, **args)
 
                 elif func.__code__.co_argcount == 2: # Generic Tests
                     include = args.pop('include', None)
                     include_dtypes = args.pop('include_dtypes', None)
                     exclude = args.pop('exclude', None)
                     column_autodetect = args.pop('column_autodetect', False)
-                    self.add_generic_test(func, include, include_dtypes, exclude, name, column_autodetect,
-                                          ignore_columns, success_threshold, **args)
+                    self.add_generic_test(func, include=include, include_dtypes=include_dtypes, exclude=exclude,
+                                          name=name, column_autodetect=column_autodetect,
+                                          ignore_columns=ignore_columns, success_threshold=success_threshold, **args)
                 else:
                     raise ValueError(f'test function with invalid params: {func.__name__} '
                                      f'takes {func.__code__.co_varnames[func.__code__.co_argcount]}\n'
@@ -169,7 +170,6 @@ class DFTests:
 
             if not test_cfg.getboolean('ignore', False):
                 try:
-                    print(test)
                     test_func = utils.get_func_from_addr(test)
                 except ValueError as e:
                     raise ValueError(f'Nonexistent test specified in {config_file}: {test}.')
@@ -178,12 +178,13 @@ class DFTests:
 
                 name = test_cfg.get('name', None)
                 if argcount == 2:
-                    self.add_generic_test(test_func, get_list(test_cfg, 'include'), get_list(test_cfg, 'exclude'),
-                                          name, test_cfg.getboolean('autodetect', False),
-                                          get_list(test_cfg, 'autodetect_ignore'))
+                    self.add_generic_test(test_func, include=get_list(test_cfg, 'include'),
+                                          exclude=get_list(test_cfg, 'exclude'), name=name,
+                                          column_autodetect=test_cfg.getboolean('autodetect', False),
+                                          ignore_columns=get_list(test_cfg, 'autodetect_ignore'))
                 elif argcount == 1:
-                    self.add_concrete_test(test_func, name, get_list(test_cfg, 'tested_columns'),
-                                           get_list(test_cfg, 'autodetect_ignore'))
+                    self.add_concrete_test(test_func, name=name, tested_columns=get_list(test_cfg, 'tested_columns'),
+                                           ignore_columns=get_list(test_cfg, 'autodetect_ignore'))
                 else:
                     raise ValueError(f'Invalid test specified: {test}: function argcount {argcount};'
                                      f'only (row) or (column, row) params are allowed')
@@ -252,7 +253,7 @@ class DFTests:
         :param success_threshold: for Index tests, this is the validity threshold that will be used to determine the test's overall success.
         """
         success_threshold = 1 if success_threshold is None else success_threshold
-        column_autodetect = True if column_autodetect is None else False
+        column_autodetect = bool(column_autodetect)
         include_dtypes = set() if include_dtypes is None else {object if type is str else type for type in include_dtypes}
         dtype_columns = self.dataframe.select_dtypes(include_dtypes).columns if len(include_dtypes) > 0 else []
 
