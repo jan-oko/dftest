@@ -50,6 +50,7 @@ def main():
                                                                                    '- python path to DataFrame supplier function\n'
                                                                                    '- file path a file with a dataframe in any legal pandas format\n')
     arg_parser.add_argument('--files', metavar='FILE_OR_DIR', nargs='+', help='files or dirs to search for tests')
+    arg_parser.add_argument('-s', '--style', metavar='STYLE_FILE', help='JSON style file setting graph color schemes')
 
     args = arg_parser.parse_args()
 
@@ -65,6 +66,8 @@ def main():
     if args.results is not None:
         with open(args.results[0], 'rb') as dumpfile:
             results = dill.load(dumpfile)
+        if args.style is not None:
+            results.load_styles(args.style)
     else:
         if os.path.isfile(args.dataframe):
             if args.dataframe.endswith('.csv'):
@@ -97,6 +100,8 @@ def main():
         dftests.load_files(*file_args)
 
         results = dftests.run()
+        if args.style is not None:  # Before dumping, so dumped results keep the style
+            results.load_styles(args.style)
 
         if args.dump is not None:
             with open(args.dump[0], 'wb+') as dumpfile:
