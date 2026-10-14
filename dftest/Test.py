@@ -15,6 +15,8 @@ from pandas import DataFrame, Series, Index
 from numpy import bool_
 # for chekcing if result is number of invalid line
 from numbers import Number
+# For accepting any iterable of invalid row indices
+from collections.abc import Iterable, Mapping
 
 # pandas < 3 caches a column on its first access (DataFrame._item_cache), and cached accesses never reach the
 # Index.__getitem__ call that column autodetection traces, so later tests reading the same column miss it.
@@ -128,8 +130,10 @@ class Test:
                 raise ValueError(f'Test {self.name}: Invalid Index Test return: got {len(result)}, expected {len(dataframe.index)}')
             result = [i for i, cell in enumerate(result) if not cell]
             return IndexTestResult(self, columns_tested, len(dataframe.index), result, self.success_threshold)
-        elif isinstance(result, list):
-            return IndexTestResult(self, columns_tested, len(dataframe.index), result, self.success_threshold)
+        # Any other iterable is taken as the invalid row indices; these would iterate over column names, characters
+        # or keys instead.
+        elif isinstance(result, Iterable) and not isinstance(result, (DataFrame, str, bytes, Mapping)):
+            return IndexTestResult(self, columns_tested, len(dataframe.index), list(result), self.success_threshold)
         else:
             raise ValueError(f'Test {self.name}: Invalid test return type: {type(result).__name__} {str(result)}')
 

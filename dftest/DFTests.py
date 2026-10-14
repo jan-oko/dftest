@@ -5,14 +5,13 @@ from __future__ import annotations
 import datetime
 # For compressing generic column, row tests to individual column
 import importlib
-import operator
 # For splitting with delimiter escape in conf parsing
 import os
 import re
 # For patrsing test conf files
 from configparser import ConfigParser
-# partial for dividing generic tests, reduce for flattening list of invalid index lists
-from functools import partial, reduce
+# partial for dividing generic tests
+from functools import partial
 # For better type hinting
 from typing import List, Callable, Hashable, Iterable, Union, Tuple
 # For graphing
@@ -81,6 +80,11 @@ class DFTests:
             elif os.path.isfile(filename) or os.path.islink(filename):
                 file_list.append(filename)
 
+        def raise_invalid_params(func):
+            params = ', '.join(func.__code__.co_varnames[:func.__code__.co_argcount])
+            raise ValueError(f'test function with invalid params: {func.__name__}({params})\n'
+                             f'Only (dataframe) or (column, dataframe), plus **kwargs, are allowed')
+
         test_funcs = []
         sys.path.append('.')
         for i, filepath in enumerate(file_list):
@@ -121,18 +125,14 @@ class DFTests:
                                           name=name, column_autodetect=column_autodetect,
                                           ignore_columns=ignore_columns, success_threshold=success_threshold, **args)
                 else:
-                    raise ValueError(f'test function with invalid params: {func.__name__} '
-                                     f'takes {func.__code__.co_varnames[func.__code__.co_argcount]}\n'
-                                     f'Only column, dataframe, **kwargs allowed')
+                    raise_invalid_params(func)
             else:
                 if func.__code__.co_argcount == 1:
                     self.add_concrete_test(func)
                 elif func.__code__.co_argcount == 2:
                     self.add_generic_test(func)
                 else:
-                    raise ValueError(f'test function with invalid params: {func.__name__} '
-                                     f'takes {func.__code__.co_varnames[func.__code__.co_argcount]}\n'
-                                     f'Only column, dataframe, **kwargs allowed')
+                    raise_invalid_params(func)
 
     def load_config(self, config_file: str):
         """
@@ -163,7 +163,7 @@ class DFTests:
         def get_list(cfg, key: str):
             if key not in cfg.keys():
                 return None
-            return re.split(r'(?<!\\),', cfg[key])
+            return [item.replace('\\,', ',') for item in re.split(r'(?<!\\),', cfg[key])]
 
         for test in config.sections():
             test_cfg = config[test]
@@ -322,10 +322,9 @@ class ColumnResults:
         self.dataframe = dataframe
 
         self.style = style
-        try:
-            self.invalid_row_index = set(reduce(operator.concat, [result.result for result in results]))
-        except TypeError:  # Reduce throws a TypeError if it's given an empty list.
-            self.invalid_row_index = set()
+        # Only index tests identify invalid rows; boolean and number results carry no row indices.
+        self.invalid_row_index = set().union(
+            *(result.invalid_row_index for result in results if isinstance(result, IndexTestResult)))
 
     @property
     def tested(self):
@@ -369,16 +368,17 @@ class ColumnResults:
     def graph_tests_success(self) -> plt.Figure:
         """
         Generates a stacked bar chart showcasing the number of successes (in green)
-        and failures (in red) of each test in the column
+        and failures (in red) of each test in the column. Boolean tests have no row counts and are left out.
 
         Note: In order for the graphs to show, you have to call `pyplot.show()`
 
         :returns: the graph's pyplot figure
         """
-        labels = [result.from_test.name for result in self.results]
-        valid_nums = [result.num_valid for result in self.results]
+        counted = [result for result in self.results if not isinstance(result, BooleanTestResult)]
+        labels = [result.from_test.name for result in counted]
+        valid_nums = [result.num_valid for result in counted]
         valid_colors = [self.style.colorcode(valid_num / self.num_rows) for valid_num in valid_nums]
-        invalid_nums = [result.num_invalid for result in self.results]
+        invalid_nums = [result.num_invalid for result in counted]
         invalid_colors = [utils.adjust_lightness(valid_color, 0.4) for valid_color in valid_colors]
 
         fig, axis = plt.subplots()
@@ -432,6 +432,8 @@ class ColumnResults:
             for t in ax.texts:
                 t.set_text(t.get_text() + " %")
 
+        return fig
+
     def graph_summary(self) -> plt.Figure:
         """
         Generates a pie graph of the column validity as a pyplot figure
@@ -476,19 +478,20 @@ class ColumnResults:
                 print(f'{result.num_valid}/{self.num_rows} '
                       f'({round(result.num_valid / self.num_rows * 100, 2)}%).')
 
-                pandas.options.display.show_dimensions = False  # Don't show dimensions when printing rows.
-                if print_all_failed:
-                    to_print = result.get_invalid_rows(self.dataframe)
-                else:
-                    to_print = result.get_invalid_rows(self.dataframe).iloc[:10]
+                if isinstance(result, IndexTestResult):  # Number tests count invalid rows without listing them
+                    pandas.options.display.show_dimensions = False  # Don't show dimensions when printing rows.
+                    if print_all_failed:
+                        to_print = result.get_invalid_rows(self.dataframe)
+                    else:
+                        to_print = result.get_invalid_rows(self.dataframe).iloc[:10]
 
-                columns_to_include = set() if columns_to_include is None else set(columns_to_include)
-                columns_to_include = columns_to_include.union({self.column})
-                columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
-                if not len(to_print.index) == 0:
-                    print(to_print[columns_to_include])
-                if not print_all_failed and result.num_invalid > 10:
-                    print('...')
+                    columns_to_include = set() if columns_to_include is None else set(columns_to_include)
+                    columns_to_include = columns_to_include.union({self.column})
+                    columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
+                    if not len(to_print.index) == 0:
+                        print(to_print[columns_to_include])
+                    if not print_all_failed and result.num_invalid > 10:
+                        print('...')
 
             print()
 
@@ -520,16 +523,17 @@ class ColumnResults:
             else:
                 test['num_valid'] = result.num_valid
                 test['num_rows'] = self.num_rows
-                invalid_rows = result.get_invalid_rows(self.dataframe)
-                test['num_invalid_rows'] = len(invalid_rows)
-                if not(print_all_failed):
-                    invalid_rows = invalid_rows.iloc[:10]
+                test['num_invalid_rows'] = result.num_invalid
+                if isinstance(result, IndexTestResult):  # Number tests count invalid rows without listing them
+                    invalid_rows = result.get_invalid_rows(self.dataframe)
+                    if not(print_all_failed):
+                        invalid_rows = invalid_rows.iloc[:10]
 
-                columns_to_include = set() if columns_to_include is None else set(columns_to_include)
-                columns_to_include = columns_to_include.union({self.column})
-                columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
-                if not len(invalid_rows.index) == 0:
-                    test['invalid_rows'] = invalid_rows[columns_to_include].to_json(orient='records')
+                    columns_to_include = set() if columns_to_include is None else set(columns_to_include)
+                    columns_to_include = columns_to_include.union({self.column})
+                    columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
+                    if not len(invalid_rows.index) == 0:
+                        test['invalid_rows'] = invalid_rows[columns_to_include].to_json(orient='records')
 
                 
             data[j] = test
@@ -688,14 +692,18 @@ class DFTestResults:
 
         return fig
 
-    def graph_coverage_heatmap(self):
+    def graph_coverage_heatmap(self) -> plt.Figure:
+        """
+        Creates and returns a pyplot figure of a binary 1D heatmap showing which columns were tested.
+        """
         data = [result.tested for result in self.column_results]
         data = np.array(data)
 
         colors = self.stylefile.dataframe_style.edges
         color_map = LinearSegmentedColormap.from_list('edges', colors)
 
-        seaborn.heatmap([data],
+        fig, ax = plt.subplots()
+        seaborn.heatmap([data], ax=ax,
                         vmin=0, vmax=1,
                         cmap=color_map,
                         cbar=False,
@@ -704,7 +712,8 @@ class DFTestResults:
 
         legend_handles = [Patch(color=colors[True], label='Valid'),
                           Patch(color=colors[False], label='Invalid')]
-        plt.legend(handles=legend_handles)
+        ax.legend(handles=legend_handles)
+        return fig
 
     def get_invalid_rows(self):
         return self.dataframe.iloc[sorted(self.invalid_row_index)]
