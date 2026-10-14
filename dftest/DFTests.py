@@ -368,16 +368,17 @@ class ColumnResults:
     def graph_tests_success(self) -> plt.Figure:
         """
         Generates a stacked bar chart showcasing the number of successes (in green)
-        and failures (in red) of each test in the column
+        and failures (in red) of each test in the column. Boolean tests have no row counts and are left out.
 
         Note: In order for the graphs to show, you have to call `pyplot.show()`
 
         :returns: the graph's pyplot figure
         """
-        labels = [result.from_test.name for result in self.results]
-        valid_nums = [result.num_valid for result in self.results]
+        counted = [result for result in self.results if not isinstance(result, BooleanTestResult)]
+        labels = [result.from_test.name for result in counted]
+        valid_nums = [result.num_valid for result in counted]
         valid_colors = [self.style.colorcode(valid_num / self.num_rows) for valid_num in valid_nums]
-        invalid_nums = [result.num_invalid for result in self.results]
+        invalid_nums = [result.num_invalid for result in counted]
         invalid_colors = [utils.adjust_lightness(valid_color, 0.4) for valid_color in valid_colors]
 
         fig, axis = plt.subplots()
