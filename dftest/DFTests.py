@@ -475,19 +475,20 @@ class ColumnResults:
                 print(f'{result.num_valid}/{self.num_rows} '
                       f'({round(result.num_valid / self.num_rows * 100, 2)}%).')
 
-                pandas.options.display.show_dimensions = False  # Don't show dimensions when printing rows.
-                if print_all_failed:
-                    to_print = result.get_invalid_rows(self.dataframe)
-                else:
-                    to_print = result.get_invalid_rows(self.dataframe).iloc[:10]
+                if isinstance(result, IndexTestResult):  # Number tests count invalid rows without listing them
+                    pandas.options.display.show_dimensions = False  # Don't show dimensions when printing rows.
+                    if print_all_failed:
+                        to_print = result.get_invalid_rows(self.dataframe)
+                    else:
+                        to_print = result.get_invalid_rows(self.dataframe).iloc[:10]
 
-                columns_to_include = set() if columns_to_include is None else set(columns_to_include)
-                columns_to_include = columns_to_include.union({self.column})
-                columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
-                if not len(to_print.index) == 0:
-                    print(to_print[columns_to_include])
-                if not print_all_failed and result.num_invalid > 10:
-                    print('...')
+                    columns_to_include = set() if columns_to_include is None else set(columns_to_include)
+                    columns_to_include = columns_to_include.union({self.column})
+                    columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
+                    if not len(to_print.index) == 0:
+                        print(to_print[columns_to_include])
+                    if not print_all_failed and result.num_invalid > 10:
+                        print('...')
 
             print()
 
@@ -519,16 +520,17 @@ class ColumnResults:
             else:
                 test['num_valid'] = result.num_valid
                 test['num_rows'] = self.num_rows
-                invalid_rows = result.get_invalid_rows(self.dataframe)
-                test['num_invalid_rows'] = len(invalid_rows)
-                if not(print_all_failed):
-                    invalid_rows = invalid_rows.iloc[:10]
+                test['num_invalid_rows'] = result.num_invalid
+                if isinstance(result, IndexTestResult):  # Number tests count invalid rows without listing them
+                    invalid_rows = result.get_invalid_rows(self.dataframe)
+                    if not(print_all_failed):
+                        invalid_rows = invalid_rows.iloc[:10]
 
-                columns_to_include = set() if columns_to_include is None else set(columns_to_include)
-                columns_to_include = columns_to_include.union({self.column})
-                columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
-                if not len(invalid_rows.index) == 0:
-                    test['invalid_rows'] = invalid_rows[columns_to_include].to_json(orient='records')
+                    columns_to_include = set() if columns_to_include is None else set(columns_to_include)
+                    columns_to_include = columns_to_include.union({self.column})
+                    columns_to_include = utils.order_columns(self.dataframe.columns, columns_to_include)
+                    if not len(invalid_rows.index) == 0:
+                        test['invalid_rows'] = invalid_rows[columns_to_include].to_json(orient='records')
 
                 
             data[j] = test
