@@ -1,4 +1,3 @@
-#!/bin/python3
 from __future__ import annotations
 
 # For parsing command line options
@@ -22,7 +21,8 @@ from dftest import utils, __version__
 # For running the tests
 from dftest.DFTests import DFTests
 
-if __name__ == '__main__':
+
+def main():
     arg_parser = argparse.ArgumentParser(prog='dftest', formatter_class=argparse.RawTextHelpFormatter)
     arg_parser.add_argument('--version', action='version', version='%(prog)s ' + __version__, help='print version number and exit')
 
@@ -152,3 +152,7 @@ if __name__ == '__main__':
         dump_proc.join()
     except NameError:
         pass
+
+
+if __name__ == '__main__':
+    main()

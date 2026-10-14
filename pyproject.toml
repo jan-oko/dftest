@@ -1,6 +1,33 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "dftest"
+dynamic = ["version"]
+description = "A library for testing and analyzing data integrity."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Atai Ambus" },
+    { name = "Ran Gilad-Bachrach" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "dill~=0.4.0",
+    # matplotlib 3.9 is the first release built for both numpy 1 and 2.
+    "matplotlib~=3.9",
+    "numpy>=1.24,<3",
+    "pandas>=2.0,<4",
+    "seaborn~=0.13.0",
+    "termcolor>=2.4,<4",
+]
+
+[project.scripts]
+dftest = "dftest.cli:main"
+
+[tool.setuptools]
+packages = ["dftest"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dftest.__version__" }

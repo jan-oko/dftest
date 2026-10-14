@@ -18,7 +18,7 @@ cd tests && python main.py
 # Run the synthetic-data example
 cd tests && python notebook.py
 
-# CLI (installed from bin/dftest)
+# CLI (the `dftest` entry point, dftest/cli.py:main; also `python -m dftest`)
 dftest --dataframe tests/College.csv --files tests/test_funcs.py -p
 dftest --dataframe data.csv --files tests.py -d results.dill   # dump results with dill
 dftest --results results.dill -c SomeColumn -g summary validity  # reload a dump, view one column
@@ -82,8 +82,9 @@ At import time, `DFTests.py` switches matplotlib to `TkAgg` (falling back to `Ag
 
 ## Packaging and release
 
-- `requirements.txt` is read by `setup.py` as `install_requires`. It lists direct dependencies only, using `~=` to set a floor within a major version, and explicit `>=X,<Y` ranges where more than one major version is supported (pandas 2–3, numpy 1–2, termcolor 2–3). Never paste a `pip freeze` there: exact transitive pins made the package uninstallable. When changing bounds, check both `uv pip install --resolution lowest-direct` and the newest versions.
+- All packaging metadata is in `pyproject.toml` (setuptools backend). `[project] dependencies` lists direct dependencies only, using `~=` to set a floor within a major version, and explicit `>=X,<Y` ranges where more than one major version is supported (pandas 2–3, numpy 1–2, termcolor 2–3). Never paste a `pip freeze` there: exact transitive pins once made the package uninstallable. When changing bounds, check both `uv pip install --resolution lowest-direct` and the newest versions.
 - pandas 2 caches each column on first access (`DataFrame._item_cache`), and cached reads skip the `Index.__getitem__` call that column autodetection traces. `Test.test()` therefore runs traced predicates under Copy-on-Write (`_bypass_column_cache`), which bypasses the cache. pandas 3 always uses Copy-on-Write and deprecates the option, so the wrapper is a no-op there.
-- `dftest/__init__.py` `__version__` is the single source of truth. `setup.py` regex-parses it rather than importing the package.
-- Build locally: `uvx --from build pyproject-build && uvx twine check --strict dist/*`. `MANIFEST.in` must keep `requirements.txt` in the sdist, or building a wheel from the sdist fails.
+- `dftest/__init__.py` `__version__` is the single source of truth, read through `[tool.setuptools.dynamic]` (setuptools evaluates the assignment statically, without importing the package).
+- `[tool.setuptools] packages` is explicit so `tests/` isn't packaged.
+- Build locally: `uvx --from build pyproject-build && uvx twine check --strict dist/*`.
 - Release: bump `__version__`, push, then manually run the "Publish to PyPI" workflow (`.github/workflows/publish.yml`, `workflow_dispatch`). It uses the `PYPI_API_TOKEN` repo secret.

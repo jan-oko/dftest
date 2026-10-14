@@ -1,6 +1,0 @@
-dill~=0.4.0
-matplotlib~=3.9
-numpy>=1.24,<3
-pandas>=2.0,<4
-seaborn~=0.13.0
-termcolor>=2.4,<4
