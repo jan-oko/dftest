@@ -14,18 +14,14 @@ import dill
 # To  read dataframes to test
 import pandas
 
-# To start pyplot and pandasgui in the background, such that they can run concurrently
+# To show pyplot graphs and dump results in the background, such that they can run concurrently
 from multiprocessing import Process
 
-# For printing error messages, Colab check, silencing output, and parsing python object paths.
+# For printing error messages and parsing python object paths.
 from dftest import utils, __version__
 # For running the tests
 from dftest.DFTests import DFTests
 
-# For opening invalid rows in pandasgui; this requires an X server and so does not work in Colab.
-#if not utils.in_colab():
-#    import pandasgui
-    
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(prog='dftest', formatter_class=argparse.RawTextHelpFormatter)
     arg_parser.add_argument('--version', action='version', version='%(prog)s ' + __version__, help='print version number and exit')
@@ -42,7 +38,7 @@ if __name__ == '__main__':
 
     invalids_group = normal_invalid_group.add_argument_group()
     invalids_group.add_argument('--show-invalids', action='store_true', help='print a ')
-    invalids_group.add_argument('--invalids-format', nargs=1, choices=['csv', 'tsv', 'json', 'repr', 'gui'],
+    invalids_group.add_argument('--invalids-format', nargs=1, choices=['csv', 'tsv', 'json', 'repr'],
                                 help='specify format to print invalids')
 
     res_df_group = arg_parser.add_mutually_exclusive_group()
@@ -118,7 +114,7 @@ if __name__ == '__main__':
             if 'validity-binary' in args.graph:
                 results.graph_validity_heatmap(binary=True)
             if 'validity-nonbinary' in args.graph:
-                results.graph_validity_heatmap(binary=True)
+                results.graph_validity_heatmap(binary=False)
             Process(target=results.plt.show, args=()).start()
     else:
         results = results.get_column_results(args.column[0])
@@ -133,7 +129,7 @@ if __name__ == '__main__':
             if 'validity-binary' in args.graph:
                 results.graph_validity_heatmap(binary=True)
             if 'validity-nonbinary' in args.graph:
-                results.graph_validity_heatmap(binary=True)
+                results.graph_validity_heatmap(binary=False)
             Process(target=results.plt.show, args=()).start()
 
     if args.print or (args.graph is None and not args.show_invalids):
@@ -150,12 +146,6 @@ if __name__ == '__main__':
             print(invalids.to_json())
         elif fmt == 'repr':
             print(invalids)
-        elif fmt == 'gui':
-            if utils.in_colab():
-                utils.error('Error: specified --invalids-format gui, but pandasgui not available in jupyter '
-                            'notebooks.')
-            else:
-                Process(target=pandasgui.show, args=(invalids,)).start()
 
     # If dump process exists, wait for it to finish.
     try:
