@@ -164,7 +164,7 @@ class DFTests:
         def get_list(cfg, key: str):
             if key not in cfg.keys():
                 return None
-            return re.split(r'(?<!\\),', cfg[key])
+            return [item.replace('\\,', ',') for item in re.split(r'(?<!\\),', cfg[key])]
 
         for test in config.sections():
             test_cfg = config[test]
