@@ -81,6 +81,11 @@ class DFTests:
             elif os.path.isfile(filename) or os.path.islink(filename):
                 file_list.append(filename)
 
+        def raise_invalid_params(func):
+            params = ', '.join(func.__code__.co_varnames[:func.__code__.co_argcount])
+            raise ValueError(f'test function with invalid params: {func.__name__}({params})\n'
+                             f'Only (dataframe) or (column, dataframe), plus **kwargs, are allowed')
+
         test_funcs = []
         sys.path.append('.')
         for i, filepath in enumerate(file_list):
@@ -121,18 +126,14 @@ class DFTests:
                                           name=name, column_autodetect=column_autodetect,
                                           ignore_columns=ignore_columns, success_threshold=success_threshold, **args)
                 else:
-                    raise ValueError(f'test function with invalid params: {func.__name__} '
-                                     f'takes {func.__code__.co_varnames[func.__code__.co_argcount]}\n'
-                                     f'Only column, dataframe, **kwargs allowed')
+                    raise_invalid_params(func)
             else:
                 if func.__code__.co_argcount == 1:
                     self.add_concrete_test(func)
                 elif func.__code__.co_argcount == 2:
                     self.add_generic_test(func)
                 else:
-                    raise ValueError(f'test function with invalid params: {func.__name__} '
-                                     f'takes {func.__code__.co_varnames[func.__code__.co_argcount]}\n'
-                                     f'Only column, dataframe, **kwargs allowed')
+                    raise_invalid_params(func)
 
     def load_config(self, config_file: str):
         """
