@@ -431,6 +431,8 @@ class ColumnResults:
             for t in ax.texts:
                 t.set_text(t.get_text() + " %")
 
+        return fig
+
     def graph_summary(self) -> plt.Figure:
         """
         Generates a pie graph of the column validity as a pyplot figure
@@ -689,14 +691,18 @@ class DFTestResults:
 
         return fig
 
-    def graph_coverage_heatmap(self):
+    def graph_coverage_heatmap(self) -> plt.Figure:
+        """
+        Creates and returns a pyplot figure of a binary 1D heatmap showing which columns were tested.
+        """
         data = [result.tested for result in self.column_results]
         data = np.array(data)
 
         colors = self.stylefile.dataframe_style.edges
         color_map = LinearSegmentedColormap.from_list('edges', colors)
 
-        seaborn.heatmap([data],
+        fig, ax = plt.subplots()
+        seaborn.heatmap([data], ax=ax,
                         vmin=0, vmax=1,
                         cmap=color_map,
                         cbar=False,
@@ -705,7 +711,8 @@ class DFTestResults:
 
         legend_handles = [Patch(color=colors[True], label='Valid'),
                           Patch(color=colors[False], label='Invalid')]
-        plt.legend(handles=legend_handles)
+        ax.legend(handles=legend_handles)
+        return fig
 
     def get_invalid_rows(self):
         return self.dataframe.iloc[sorted(self.invalid_row_index)]
