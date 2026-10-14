@@ -1,7 +1,7 @@
-import dftests
+from dftest import tests
 
-yesno_test = dftests.in_list_test(['yes', 'no'])
-percent = dftests.in_range_test(0, 100, True, True)
+yesno_test = tests.in_list_test(['yes', 'no'])
+percent = tests.in_range_test(0, 100, True, True)
 
 
 # Note that because of the dataset significant inconsistency, we have

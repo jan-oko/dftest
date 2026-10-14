@@ -23,9 +23,9 @@ from dftest import utils, __version__
 from dftest.DFTests import DFTests
 
 # For opening invalid rows in pandasgui; this requires an X server and so does not work in Colab.
-if not utils.in_colab():
-    import pandasgui
-
+#if not utils.in_colab():
+#    import pandasgui
+    
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(prog='dftest', formatter_class=argparse.RawTextHelpFormatter)
     arg_parser.add_argument('--version', action='version', version='%(prog)s ' + __version__, help='print version number and exit')
