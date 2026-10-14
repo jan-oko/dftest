@@ -1,6 +1,8 @@
 # Sets type hints to act as string so I can reference a class (in a type hint) before it's defined.
 from __future__ import annotations
 
+# For a no-op context when column caching doesn't need disabling.
+from contextlib import nullcontext
 # For autodetecting accessed columns as a test run, and set the trace function back afterwards.
 from sys import settrace, gettrace
 # For better typehinting
@@ -13,6 +15,15 @@ from pandas import DataFrame, Series, Index
 from numpy import bool_
 # for chekcing if result is number of invalid line
 from numbers import Number
+
+# pandas < 3 caches a column on its first access (DataFrame._item_cache), and cached accesses never reach the
+# Index.__getitem__ call that column autodetection traces, so later tests reading the same column miss it.
+# Copy-on-Write mode bypasses the cache; pandas 3 always uses it and deprecates the option.
+if int(pd.__version__.split('.')[0]) < 3:
+    def _bypass_column_cache():
+        return pd.option_context('mode.copy_on_write', True)
+else:
+    _bypass_column_cache = nullcontext
 
 
 class Test:
@@ -97,7 +108,8 @@ class Test:
 
         # Make sure to eventually set the trace function back.
         try:
-            test_result = self.predicate(test_target, **self.kwargs)
+            with _bypass_column_cache():
+                test_result = self.predicate(test_target, **self.kwargs)
         finally:
             settrace(original_trace)
 

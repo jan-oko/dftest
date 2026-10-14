@@ -18,7 +18,7 @@ setup(
     version=version,
     scripts=['bin/dftest'],
     install_requires=deps,
-    python_requires='>=3.9',
+    python_requires='>=3.10',
     description='A library for testing and analyzing data integrity.',
     long_description=long_description,
     long_description_content_type='text/markdown',

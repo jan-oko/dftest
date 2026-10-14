@@ -24,7 +24,11 @@ dftest --dataframe data.csv --files tests.py -d results.dill   # dump results wi
 dftest --results results.dill -c SomeColumn -g summary validity  # reload a dump, view one column
 ```
 
-There is no automated test suite. `tests/` holds example scripts and sample data, not pytest tests. Don't confuse it with `dftest/tests.py`, which is the library's built-in test factories (`in_range_test`, `match_test`, `in_list_test`, `simple_type_test`, `non_equal_test`, `dftest_not_null`).
+There is no automated test suite. `tests/` holds example scripts and sample data, not pytest tests. `tests/MetObjects.csv` is a Git LFS pointer.
+
+Don't confuse `tests/` with `dftest/tests.py`, the library's built-in test factories (`in_range_test`, `match_test`, `in_list_test`, `simple_type_test`, `non_equal_test`, `dftest_not_null`).
+
+`dftest.options` resolves to the `options()` decorator, not the submodule (`__init__.py` re-exports it under the same name). Use `from dftest.options import ...` to reach the module.
 
 ## Architecture
 
@@ -78,7 +82,8 @@ At import time, `DFTests.py` switches matplotlib to `TkAgg` (falling back to `Ag
 
 ## Packaging and release
 
-- `requirements.txt` is read by `setup.py` as `install_requires`, so it lists direct dependencies with lower bounds only. Never paste a `pip freeze` there: exact transitive pins made the package uninstallable.
+- `requirements.txt` is read by `setup.py` as `install_requires`. It lists direct dependencies only, using `~=` to set a floor within a major version, and explicit `>=X,<Y` ranges where more than one major version is supported (pandas 2–3, numpy 1–2, termcolor 2–3). Never paste a `pip freeze` there: exact transitive pins made the package uninstallable. When changing bounds, check both `uv pip install --resolution lowest-direct` and the newest versions.
+- pandas 2 caches each column on first access (`DataFrame._item_cache`), and cached reads skip the `Index.__getitem__` call that column autodetection traces. `Test.test()` therefore runs traced predicates under Copy-on-Write (`_bypass_column_cache`), which bypasses the cache. pandas 3 always uses Copy-on-Write and deprecates the option, so the wrapper is a no-op there.
 - `dftest/__init__.py` `__version__` is the single source of truth. `setup.py` regex-parses it rather than importing the package.
 - Build locally: `uvx --from build pyproject-build && uvx twine check --strict dist/*`. `MANIFEST.in` must keep `requirements.txt` in the sdist, or building a wheel from the sdist fails.
 - Release: bump `__version__`, push, then manually run the "Publish to PyPI" workflow (`.github/workflows/publish.yml`, `workflow_dispatch`). It uses the `PYPI_API_TOKEN` repo secret.
