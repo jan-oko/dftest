@@ -5,14 +5,13 @@ from __future__ import annotations
 import datetime
 # For compressing generic column, row tests to individual column
 import importlib
-import operator
 # For splitting with delimiter escape in conf parsing
 import os
 import re
 # For patrsing test conf files
 from configparser import ConfigParser
-# partial for dividing generic tests, reduce for flattening list of invalid index lists
-from functools import partial, reduce
+# partial for dividing generic tests
+from functools import partial
 # For better type hinting
 from typing import List, Callable, Hashable, Iterable, Union, Tuple
 # For graphing
@@ -323,10 +322,9 @@ class ColumnResults:
         self.dataframe = dataframe
 
         self.style = style
-        try:
-            self.invalid_row_index = set(reduce(operator.concat, [result.result for result in results]))
-        except TypeError:  # Reduce throws a TypeError if it's given an empty list.
-            self.invalid_row_index = set()
+        # Only index tests identify invalid rows; boolean and number results carry no row indices.
+        self.invalid_row_index = set().union(
+            *(result.invalid_row_index for result in results if isinstance(result, IndexTestResult)))
 
     @property
     def tested(self):
